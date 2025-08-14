@@ -37,7 +37,7 @@ func NewWireSocks(options ...option) (*WireSocks, error) {
 	iface := InterfaceConfig{
 		DNS:        dnsAddrs,
 		PrivateKey: "",
-		Addresses:  []netip.Addr{},
+		Addresses:  []netip.Prefix{},
 		MTU:        1330,
 		FwMark:     0x0,
 	}

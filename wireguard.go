@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -181,7 +182,13 @@ func establishWireguard(conf *Configuration, tunDev tun.Device, fwmark uint32) (
 
 func createWireguardDevice(ctx context.Context, conf *Configuration, testURL string) (*device.Device, *netstack.Net, error) {
 	log.Debugf("Creating netstack TUN device with addresses: %v, DNS: %v, MTU: %d", conf.Interface.Addresses, conf.Interface.DNS, conf.Interface.MTU)
-	tunDev, tnet, err := netstack.CreateNetTUN(conf.Interface.Addresses, conf.Interface.DNS, conf.Interface.MTU)
+
+	var interfaceAddrs []netip.Addr
+	for _, prefix := range conf.Interface.Addresses {
+		interfaceAddrs = append(interfaceAddrs, prefix.Addr())
+	}
+
+	tunDev, tnet, err := netstack.CreateNetTUN(interfaceAddrs, conf.Interface.DNS, conf.Interface.MTU)
 	if err != nil {
 		log.Errorf("Failed to create netstack TUN device: %v", err)
 		return nil, nil, err

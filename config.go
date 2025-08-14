@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"strings"
 
 	"github.com/go-ini/ini"
 )
@@ -20,7 +21,7 @@ type PeerConfig struct {
 
 type InterfaceConfig struct {
 	PrivateKey string
-	Addresses  []netip.Addr
+	Addresses  []netip.Prefix
 	DNS        []netip.Addr
 	MTU        int
 	FwMark     uint32
@@ -29,6 +30,83 @@ type InterfaceConfig struct {
 type Configuration struct {
 	Interface *InterfaceConfig
 	Peers     []PeerConfig
+}
+
+func (c *Configuration) String() (string, error) {
+	var b strings.Builder
+
+	// [Interface] section
+	b.WriteString("[Interface]\n")
+	if c.Interface.PrivateKey != "" {
+		privKeyB64, err := EncodeHexToBase64(c.Interface.PrivateKey)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString(fmt.Sprintf("PrivateKey = %s\n", privKeyB64))
+	}
+	if len(c.Interface.Addresses) > 0 {
+		var addrs []string
+		for _, addr := range c.Interface.Addresses {
+			addrs = append(addrs, addr.String())
+		}
+		b.WriteString(fmt.Sprintf("Address = %s\n", strings.Join(addrs, ", ")))
+	}
+	if len(c.Interface.DNS) > 0 {
+		var dns []string
+		for _, d := range c.Interface.DNS {
+			dns = append(dns, d.String())
+		}
+		b.WriteString(fmt.Sprintf("DNS = %s\n", strings.Join(dns, ", ")))
+	}
+	if c.Interface.MTU != 0 {
+		b.WriteString(fmt.Sprintf("MTU = %d\n", c.Interface.MTU))
+	}
+
+	// [Peer] sections
+	for _, peer := range c.Peers {
+		b.WriteString("\n[Peer]\n")
+		if peer.PublicKey != "" {
+
+			pubKeyB64, err := EncodeHexToBase64(peer.PublicKey)
+			if err != nil {
+				return "", err
+			}
+			b.WriteString(fmt.Sprintf("PublicKey = %s\n", pubKeyB64))
+		}
+		if peer.PreSharedKey != "" && peer.PreSharedKey != "0000000000000000000000000000000000000000000000000000000000000000" {
+			pskB64, err := EncodeHexToBase64(peer.PreSharedKey)
+			if err != nil {
+				return "", err
+			}
+			b.WriteString(fmt.Sprintf("PresharedKey = %s\n", pskB64))
+		}
+		if len(peer.AllowedIPs) > 0 {
+			var ips []string
+			for _, ip := range peer.AllowedIPs {
+				ips = append(ips, ip.String())
+			}
+			b.WriteString(fmt.Sprintf("AllowedIPs = %s\n", strings.Join(ips, ", ")))
+		}
+		if peer.Endpoint != "" {
+			b.WriteString(fmt.Sprintf("Endpoint = %s\n", peer.Endpoint))
+		}
+		if peer.KeepAlive != 0 {
+			b.WriteString(fmt.Sprintf("PersistentKeepalive = %d\n", peer.KeepAlive))
+		}
+	}
+
+	return b.String(), nil
+}
+
+func EncodeHexToBase64(key string) (string, error) {
+	decoded, err := hex.DecodeString(key)
+	if err != nil {
+		return "", fmt.Errorf("invalid hex string: %s", key)
+	}
+	if len(decoded) != 32 {
+		return "", fmt.Errorf("key should be 32 bytes, but it is %d bytes", len(decoded))
+	}
+	return base64.StdEncoding.EncodeToString(decoded), nil
 }
 
 func EncodeBase64ToHex(key string) (string, error) {
@@ -56,14 +134,14 @@ func ParseInterface(cfg *ini.File) (InterfaceConfig, error) {
 		return InterfaceConfig{}, nil
 	}
 
-	var addresses []netip.Addr
+	var addresses []netip.Prefix
 	for _, str := range key.StringsWithShadows(",") {
 		prefix, err := netip.ParsePrefix(str)
 		if err != nil {
 			return InterfaceConfig{}, err
 		}
 
-		addresses = append(addresses, prefix.Addr())
+		addresses = append(addresses, prefix)
 	}
 	device.Addresses = addresses
 
