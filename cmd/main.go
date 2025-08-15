@@ -68,7 +68,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to parse SOCKS address: %v", err)
 		}
-		ws.WithSocksBindAddr(addr)
+		ws.WithSocksBindAddr(&addr)
 		log.Debugf("SOCKS5 proxy enabled on: %s", addr.String())
 	} else {
 		log.Debugf("SOCKS5 proxy disabled.")
@@ -79,7 +79,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to parse HTTP address: %v", err)
 		}
-		ws.WithHTTPBindAddr(addr)
+		ws.WithHTTPBindAddr(&addr)
 		log.Debugf("HTTP proxy enabled on: %s", addr.String())
 	} else {
 		log.Debugf("HTTP proxy disabled.")

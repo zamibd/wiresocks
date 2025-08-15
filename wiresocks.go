@@ -8,7 +8,6 @@ import (
 	"github.com/shahradelahi/wiresocks/log"
 )
 
-// WireSocks is the main engine for running WARP.
 type WireSocks struct {
 	conf             *Configuration
 	socksBindAddress *netip.AddrPort
@@ -28,7 +27,6 @@ func NewWireSocks(options ...option) (*WireSocks, error) {
 	for _, dns := range dnsServers {
 		addr, err := netip.ParseAddr(dns)
 		if err != nil {
-			log.Errorf("Failed to parse default DNS server %s: %v", dns, err)
 			return nil, fmt.Errorf("failed to parse DNS server: %v", err)
 		}
 		dnsAddrs = append(dnsAddrs, addr)
@@ -88,7 +86,7 @@ func (s *WireSocks) Run() error {
 	}
 
 	// Establish wireguard on userspace stack
-	log.Infof("Attempting to create WireGuard device.")
+	log.Debugf("Attempting to create WireGuard device.")
 	dev, tnet, err := createWireguardDevice(s.ctx, s.conf, s.testURL)
 	if err != nil {
 		log.Fatalf("Failed to create WireGuard device: %v", err)
@@ -150,12 +148,29 @@ func (s *WireSocks) WithConfig(conf *Configuration) {
 	log.Debugf("Set configuration from external source.")
 }
 
-func (s *WireSocks) WithSocksBindAddr(addr netip.AddrPort) {
-	s.socksBindAddress = &addr
+func (s *WireSocks) WithSocksBindAddr(addr *netip.AddrPort) {
+	s.socksBindAddress = addr
 	log.Debugf("Set SOCKS bind address to: %s", addr.String())
 }
 
-func (s *WireSocks) WithHTTPBindAddr(addr netip.AddrPort) {
-	s.httpBindAddress = &addr
+func (s *WireSocks) WithHTTPBindAddr(addr *netip.AddrPort) {
+	s.httpBindAddress = addr
 	log.Debugf("Set HTTP bind address to: %s", addr.String())
+}
+
+func (s *WireSocks) WithProxyOptions(opts *ProxyOptions) {
+	s.socksBindAddress = opts.SocksBindAddress
+	s.httpBindAddress = opts.HttpBindAddress
+	var socksAddr, httpAddr string
+	if opts.SocksBindAddress != nil {
+		socksAddr = opts.SocksBindAddress.String()
+	} else {
+		socksAddr = "disabled"
+	}
+	if opts.HttpBindAddress != nil {
+		httpAddr = opts.HttpBindAddress.String()
+	} else {
+		httpAddr = "disabled"
+	}
+	log.Debugf("Set proxy options with SOCKS bind address: %s and HTTP bind address: %s", socksAddr, httpAddr)
 }
