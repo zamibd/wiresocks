@@ -1,8 +1,6 @@
 package wiresocks
 
 import (
-	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -98,28 +96,6 @@ func (c *Configuration) String() (string, error) {
 	return b.String(), nil
 }
 
-func EncodeHexToBase64(key string) (string, error) {
-	decoded, err := hex.DecodeString(key)
-	if err != nil {
-		return "", fmt.Errorf("invalid hex string: %s", key)
-	}
-	if len(decoded) != 32 {
-		return "", fmt.Errorf("key should be 32 bytes, but it is %d bytes", len(decoded))
-	}
-	return base64.StdEncoding.EncodeToString(decoded), nil
-}
-
-func EncodeBase64ToHex(key string) (string, error) {
-	decoded, err := base64.StdEncoding.DecodeString(key)
-	if err != nil {
-		return "", fmt.Errorf("invalid base64 string: %s", key)
-	}
-	if len(decoded) != 32 {
-		return "", fmt.Errorf("key should be 32 bytes: %s", key)
-	}
-	return hex.EncodeToString(decoded), nil
-}
-
 // ParseInterface parses the [Interface] section
 func ParseInterface(cfg *ini.File) (InterfaceConfig, error) {
 	device := InterfaceConfig{}
@@ -136,11 +112,19 @@ func ParseInterface(cfg *ini.File) (InterfaceConfig, error) {
 
 	var addresses []netip.Prefix
 	for _, str := range key.StringsWithShadows(",") {
+		str = strings.TrimSpace(str)
 		prefix, err := netip.ParsePrefix(str)
 		if err != nil {
-			return InterfaceConfig{}, err
+			addr, err2 := netip.ParseAddr(str)
+			if err2 != nil {
+				return InterfaceConfig{}, fmt.Errorf("address %q is not a valid IP address or CIDR prefix: %w", str, err)
+			}
+			if addr.Is4() {
+				prefix = netip.PrefixFrom(addr, 32)
+			} else {
+				prefix = netip.PrefixFrom(addr, 128)
+			}
 		}
-
 		addresses = append(addresses, prefix)
 	}
 	device.Addresses = addresses
@@ -174,6 +158,14 @@ func ParseInterface(cfg *ini.File) (InterfaceConfig, error) {
 			return InterfaceConfig{}, err
 		}
 		device.MTU = value
+	}
+
+	if sectionKey, err := iface.GetKey("FwMark"); err == nil {
+		value, err := sectionKey.Int()
+		if err != nil {
+			return InterfaceConfig{}, err
+		}
+		device.FwMark = uint32(value)
 	}
 
 	return device, nil

@@ -194,7 +194,7 @@ func createWireguardDevice(ctx context.Context, conf *Configuration, testURL str
 		return nil, nil, err
 	}
 
-	log.Debugf("Establishing WireGuard connection")
+	log.Infof("Establishing WireGuard connection")
 	dev, err := establishWireguard(conf, tunDev, conf.Interface.FwMark)
 	if err != nil {
 		log.Errorf("Failed to establish WireGuard connection: %v", err)
@@ -202,7 +202,7 @@ func createWireguardDevice(ctx context.Context, conf *Configuration, testURL str
 	}
 
 	// Test wireguard connectivity
-	log.Debugf("Testing WireGuard connection")
+	log.Infof("Testing WireGuard connection")
 	err = connectivityTest(ctx, tnet, testURL)
 	if err != nil {
 		log.Errorf("WireGuard connectivity test failed: %v", err)

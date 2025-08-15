@@ -2,6 +2,8 @@ package wiresocks
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -110,4 +112,26 @@ func ParseResolveAddressPort(hostname string, includev6 bool, dnsServer string) 
 	}
 
 	return netip.AddrPort{}, errors.New("no valid IP addresses found")
+}
+
+func EncodeHexToBase64(key string) (string, error) {
+	decoded, err := hex.DecodeString(key)
+	if err != nil {
+		return "", fmt.Errorf("invalid hex string: %s", key)
+	}
+	if len(decoded) != 32 {
+		return "", fmt.Errorf("key should be 32 bytes, but it is %d bytes", len(decoded))
+	}
+	return base64.StdEncoding.EncodeToString(decoded), nil
+}
+
+func EncodeBase64ToHex(key string) (string, error) {
+	decoded, err := base64.StdEncoding.DecodeString(key)
+	if err != nil {
+		return "", fmt.Errorf("invalid base64 string: %s", key)
+	}
+	if len(decoded) != 32 {
+		return "", fmt.Errorf("key should be 32 bytes: %s", key)
+	}
+	return hex.EncodeToString(decoded), nil
 }
